@@ -40,7 +40,9 @@ const (
 func initDeps() {
 	flag.Parse()	
 	parseTemplates()
-	db.Init(*dbPath)
+        if err := db.Init(filepath.Join(*rootDir, *dbPath)); err != nil {
+		log.Fatalf("could not open database: %v", err)
+	}
 }
 
 func parseTemplates() {
@@ -228,15 +230,14 @@ func buildFeedPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveResources(w http.ResponseWriter, r *http.Request) {
-	fs := http.FileServer(http.Dir(filepath.Join(*rootDir, *resources)))
-	http.StripPrefix("/images", fs).ServeHTTP(w, r)
-}
-
-func serveStatic(w http.ResponseWriter, r *http.Request) {
-	fs := http.FileServer(http.Dir(filepath.Join(*rootDir, *static)))
-	http.StripPrefix("/static", fs).ServeHTTP(w, r)
-}
+// func loggingMiddleware(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		// Do stuff here
+// 		fmt.Println(r.RequestURI)
+// 		// Call the next handler, which can be another middleware in the chain, or the final handler.
+// 		next.ServeHTTP(w, r)
+// 	})
+// }
 
 func main() {
 	initDeps()
@@ -261,6 +262,7 @@ func main() {
 	// 10) Conglomerate html files. They can have a common base.
 	// 11) I should probably write unit tests...
 	// 12) All nodes should bring servers up on startup. Head node should restart /mnt/usb sharing server on startup also.
+	// 13) Implement logging and debugging middleware and make it not terrible.
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
@@ -269,8 +271,10 @@ func main() {
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")
-	router.HandleFunc("/static/{item}", serveStatic).Methods("GET")
-	router.HandleFunc("/images/{item}", serveResources).Methods("GET")
+	router.Handle("/static/{item}", http.StripPrefix("/static", http.FileServer(http.Dir(filepath.Join(*rootDir, *static))))).Methods("GET")
+	router.Handle("/images/{item}", http.StripPrefix("/images", http.FileServer(http.Dir(filepath.Join(*rootDir, *resources))))).Methods("GET")
+	router.Handle("/images/{dir}/{item}", http.StripPrefix("/images", http.FileServer(http.Dir(filepath.Join(*rootDir, *resources))))).Methods("GET")
 	router.HandleFunc("/{id}", buildLandingPage).Methods("GET")
+	// router.Use(loggingMiddleware) 
 	log.Fatal(http.ListenAndServe(*port, router))
 }
