@@ -21,6 +21,7 @@ import (
 
 var (
 	tmpls map[string]*template.Template
+	logTime time.Time
 
 	dbPath    = flag.String("dbPath", "db/testDB.db", "Datafile to use")
 	logDir   = flag.String("logDir", "logs", "Directory to log to. This path with be joined with rootDir")
@@ -230,24 +231,48 @@ func buildFeedPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// func loggingMiddleware(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		// Do stuff here
-// 		fmt.Println(r.RequestURI)
-// 		// Call the next handler, which can be another middleware in the chain, or the final handler.
-// 		next.ServeHTTP(w, r)
-// 	})
-// }
+// This is packed into the middleware so we crash instead of returning on failure.
+func setLoggingLocation(now time.Time) {
+	if *logDir == "" {
+		log.Fatal("logDir flag must be set")
+	}
+
+	nowString := fmt.Sprintf("%d-%02d-%02d", now.Year(), now.Month(), now.Day())
+	logFile := filepath.Join(*rootDir, *logDir, fmt.Sprintf("debug-logs_%s.txt", nowString))
+
+	var file *os.File
+	if _, err := os.Stat(logFile); os.IsNotExist(err) {
+		file, err = os.Create(logFile)
+		if err != nil {
+			log.Fatalf("Failed to create file with name %s: %v", logFile, err)
+		}
+	} else {
+		file, err = os.Open(logFile)
+		if err != nil {
+			log.Fatalf("Failed to open file with name  %s: %v", logFile, err)
+		}
+	}
+	// Reset logtime.
+	logTime = now
+	log.SetOutput(file)
+} 
+
+func logger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		now := time.Now().UTC()
+		if now.Day() != logTime.Day() || now.Month() != logTime.Month() || now.Year() != logTime.Year() {
+			setLoggingLocation(now)
+			logTime = now
+		}
+
+		// Call the next handler, which can be another middleware in the chain, or the final handler.
+		next.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	initDeps()
 	
-	file, err := setupLogging()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	log.SetOutput(file)
 	// TODO:
 	// 1) DONE -- Build converter package from DB to serving structs
 	// 2) DONE -- Init DB package and use here.
@@ -255,6 +280,7 @@ func main() {
 	// 4) DONE -- Add apache logging middle ware from gorilla
 	// 5) DONE -- Instead of breaking out of http handlers with return empty use http package for return values.
 	// 6) Clean up http handlers and history sorter.
+	// 6.5) Clean up and cache feeds.
 	// 7) DONE -- DB Driver does this for me -- Check to see if I need to sanitize my URL vars before querying DB.
 	// 8) Backup all SD cards
 	// 9) Minimize all JPGs in shared folder.
@@ -262,7 +288,7 @@ func main() {
 	// 10) Conglomerate html files. They can have a common base.
 	// 11) I should probably write unit tests...
 	// 12) All nodes should bring servers up on startup. Head node should restart /mnt/usb sharing server on startup also.
-	// 13) Implement logging and debugging middleware and make it not terrible.
+	// 13) Implement logging and debugging middleware and make it not terrible. This is halfway done. I'd like debug logs to be in combined logging format however.
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
@@ -275,6 +301,6 @@ func main() {
 	router.Handle("/images/{item}", http.StripPrefix("/images", http.FileServer(http.Dir(filepath.Join(*rootDir, *resources))))).Methods("GET")
 	router.Handle("/images/{dir}/{item}", http.StripPrefix("/images", http.FileServer(http.Dir(filepath.Join(*rootDir, *resources))))).Methods("GET")
 	router.HandleFunc("/{id}", buildLandingPage).Methods("GET")
-	// router.Use(loggingMiddleware) 
+	router.Use(logger) 
 	log.Fatal(http.ListenAndServe(*port, router))
 }
