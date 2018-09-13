@@ -1,6 +1,8 @@
 package serving
 
 import (
+	"bytes"
+	"io"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -93,4 +95,8 @@ func OneoffToServing(o db.Oneoff) EntryServing {
 		Content: splitTextBlob(o.Paragraph),
 		Image: splitTextBlob(o.Image),
 	}
+}
+
+func StringToPDF(pdf string) io.ReadSeeker {
+	return bytes.NewReader([]byte(pdf))
 }

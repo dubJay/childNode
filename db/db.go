@@ -9,10 +9,12 @@ import (
 
 // Queries for db actions.
 var (
-	entryQuery   = `SELECT timestamp, title, next, previous, paragraph, image FROM entry WHERE timestamp = ?`
-	historyQuery = `SELECT timestamp, title FROM entry ORDER BY timestamp DESC`
-	landingQuery = `SELECT timestamp, title, next, previous, paragraph, image FROM entry ORDER BY timestamp DESC LIMIT ?`
-	oneoffQuery  = `SELECT uid, paragraph, image from oneoff WHERE uid = ?`
+	entryQuery       = `SELECT timestamp, title, next, previous, paragraph, image FROM entry WHERE timestamp = ?`
+	historyQuery     = `SELECT timestamp, title FROM entry ORDER BY timestamp DESC`
+	landingQuery     = `SELECT timestamp, title, next, previous, paragraph, image FROM entry ORDER BY timestamp DESC LIMIT ?`
+	oneoffQuery      = `SELECT uid, paragraph, image from oneoff WHERE uid = ?`
+	articleMetaQuery = `SELECT timestamp, title, organization, hyperlink FROM articlemeta ORDER BY timestamp DESC`
+	articleQuery     = `SELECT pdf FROM articlemeta where timestamp = ?`
 )
 
 var globalDB *sql.DB
@@ -38,6 +40,12 @@ type History struct {
 	Title    string
 }
 
+type ArticleMeta struct {
+	EntryId int
+	Title string
+	Organization string
+	Hyperlink string
+}
 
 func Init(dbPath string) error {
 	var err error
@@ -46,6 +54,35 @@ func Init(dbPath string) error {
 		err = fmt.Errorf("Failed to init db (path: %s): %v", dbPath, err)
 	}
 	return err
+}
+
+func GetArticleMeta() ([]ArticleMeta, error) {
+	rows, err := globalDB.Query(articleMetaQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var articles []ArticleMeta
+	for rows.Next() {
+		article := ArticleMeta{}
+		err := rows.Scan(&article.EntryId, &article.Title, &article.Organization, &article.Hyperlink)
+		if err != nil {
+			return nil, err
+		}
+		articles = append(articles, article)
+	}
+	return articles, nil
+}
+
+func GetArticle(id int) (string, error) {
+	if id == 0 {
+		return "", fmt.Errorf("%d is not a valid id", id)
+	}
+
+	var pdf string
+	err := globalDB.QueryRow(articleQuery, id).Scan(&pdf)
+	return pdf, err
 }
 
 func GetRecentEntries(limit int) ([]Entry, error) {

@@ -36,6 +36,7 @@ const (
 	entryPage   = "entry.html"
 	historyPage = "history.html"
 	landingPage = "index.html"
+	kCawd       = "kcawd.html"
 )
 
 func initDeps() {
@@ -64,6 +65,12 @@ func parseTemplates() {
 	if err != nil {
 		log.Fatalf("error parsing template %s: %v", historyPage, err)
 	}
+	tmpls[kCawd], err = template.New(
+		kCawd).ParseFiles(filepath.Join(*rootDir, *templates, kCawd))
+	if err != nil {
+		log.Fatalf("error parsing template %s: %v", kCawd, err)
+	}
+
 	log.Print("Templates successfully initialized");
 }
 
@@ -154,6 +161,39 @@ func buildNavPage(w http.ResponseWriter, r *http.Request) {
 		log.Printf("error executing template %s: %v", historyPage, err)
 		http.Error(w, "failed to build navigation from historical records", http.StatusInternalServerError)
 	}
+}
+
+func buildKCawdPage(w http.ResponseWriter, r *http.Request) {
+	articles, err := db.GetArticleMeta()
+	if err != nil {
+		log.Printf("unable to retrieve kcawd article metadata: %v", err)
+		http.Error(w, "failed to retrieve katy's articles from archive", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpls[kCawd].Execute(w, articles); err != nil {
+		log.Printf("error executing template %s: %v", kCawd, err)
+		http.Error(w, "failed to build katy's landing page", http.StatusInternalServerError)
+	}
+}
+
+func serveKCawdPDF(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	id := vars["id"]
+	idNumeric, err := strconv.Atoi(id)
+	if err != nil {
+		log.Printf("invalid id for serveKatyCawd %s", id)
+		http.Error(w, "invalid id for article: " + id, http.StatusNotFound)
+	}
+	
+	article, err := db.GetArticle(idNumeric)
+	if err != nil {
+		log.Printf("unable to locate pdf for article: %d", id)
+		http.Error(w, "no PDF found for article: " + id, http.StatusNotFound)
+	}
+
+	http.ServeContent(w, r, id + ".pdf", time.Unix(0, 0), serving.StringToPDF(article))
 }
 
 func buildFeedPage(w http.ResponseWriter, r *http.Request) {
@@ -294,6 +334,8 @@ func main() {
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
 	router.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(*rootDir, "robots.txt"))})
+	router.HandleFunc("/kcawd", buildKCawdPage).Methods("GET")
+	router.HandleFunc("/kcawd/{id}", serveKCawdPDF).Methods("GET")
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")
