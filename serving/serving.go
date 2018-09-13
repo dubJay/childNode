@@ -2,6 +2,7 @@ package serving
 
 import (
 	"bytes"
+	"html/template"
 	"io"
 	"path/filepath"
 	"sort"
@@ -19,7 +20,7 @@ type EntryServing struct {
 	Month     string
 	Day       string
 	Year      string
-	Content   []string
+	Content   []template.HTML
 	Image     []string
 }
 
@@ -37,6 +38,14 @@ type HistoryServing []historyEntry
 
 func splitTextBlob(s string) []string {
 	return strings.Split(s, `\n`)
+}
+
+func stringToTemplate(s []string) []template.HTML {
+	var html []template.HTML
+	for _, item := range s {
+		html = append(html, template.HTML(item))
+	}
+	return html
 }
 
 func HistoryToServing(h []db.History) HistoryServing {
@@ -84,7 +93,7 @@ func EntryToServing(e db.Entry) EntryServing {
 		Month: t.Month().String(),
 		Day: strconv.Itoa(t.Day()),
 		Year: strconv.Itoa(t.Year()),
-		Content: splitTextBlob(e.Content),
+		Content: stringToTemplate(splitTextBlob(e.Content)),
 		Image: splitTextBlob(e.Image),
 	}
 }
@@ -92,7 +101,7 @@ func EntryToServing(e db.Entry) EntryServing {
 func OneoffToServing(o db.Oneoff) EntryServing {
 	return EntryServing{
 		Title: o.Uid,
-		Content: splitTextBlob(o.Paragraph),
+		Content: stringToTemplate(splitTextBlob(o.Paragraph)),
 		Image: splitTextBlob(o.Image),
 	}
 }
