@@ -93,7 +93,10 @@ func buildOneOff(w http.ResponseWriter, uid string) error {
 	if err != nil {
 		return fmt.Errorf("unable to find oneoff entry: %v", err)
 	}
-	serving := serving.OneoffToServing(oneoff)
+	serving, err := serving.OneoffToServing(oneoff)
+	if err != nil {
+		return fmt.Errorf("failed to generate HTML content: %v", err)
+	}
 	
 	return tmpls[entryPage].Execute(w, serving)
 }
@@ -116,7 +119,12 @@ func buildLandingPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to retrieve langing page content from db", http.StatusInternalServerError)
 		return
 	}
-	serving := serving.EntryToServing(entry)
+	serving, err := serving.EntryToServing(entry)
+	if err != nil {
+		log.Printf("failed to generate HTML content: %v", err)
+		http.Error(w, "failed to generate content", http.StatusInternalServerError)
+		return
+	}
 
 	if err := tmpls[landingPage].Execute(w, serving); err != nil {
 		log.Printf("error executing template %s: %v", landingPage, err)
@@ -142,7 +150,14 @@ func buildPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := tmpls[entryPage].Execute(w, serving.EntryToServing(entry)); err != nil {
+	serving, err := serving.EntryToServing(entry)
+	if err != nil {
+		log.Printf("failed to generate HTML content: %v", err)
+		http.Error(w, "failed to generate content", http.StatusInternalServerError)
+		return
+	}
+	
+	if err := tmpls[entryPage].Execute(w, serving); err != nil {
 		log.Printf("error executing template %s: %v", entryPage, err)
 		http.Error(w, "failed to build page", http.StatusInternalServerError)
 	}

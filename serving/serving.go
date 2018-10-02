@@ -2,6 +2,7 @@ package serving
 
 import (
 	"bytes"
+	"errors"
 	"html/template"
 	"io"
 	"path/filepath"
@@ -20,8 +21,12 @@ type EntryServing struct {
 	Month     string
 	Day       string
 	Year      string
-	Content   []template.HTML
-	Image     []string
+	HTML      template.HTML
+}
+
+type entryHTMLRaw struct {
+	Content []string
+	Image []string
 }
 
 type historyMeta struct {
@@ -38,14 +43,6 @@ type HistoryServing []historyEntry
 
 func splitTextBlob(s string) []string {
 	return strings.Split(s, `\n`)
-}
-
-func stringToTemplate(s []string) []template.HTML {
-	var html []template.HTML
-	for _, item := range s {
-		html = append(html, template.HTML(item))
-	}
-	return html
 }
 
 func HistoryToServing(h []db.History) HistoryServing {
@@ -76,7 +73,7 @@ func HistoryToServing(h []db.History) HistoryServing {
 
 }
 
-func EntryToServing(e db.Entry) EntryServing {
+func EntryToServing(e db.Entry) (EntryServing, error) {
 	t := time.Unix(int64(e.Entry_id), 0)
 	nextStr, prevStr := "", ""
 	if e.Next != 0 {
@@ -86,6 +83,14 @@ func EntryToServing(e db.Entry) EntryServing {
 		prevStr = filepath.Join("/entry", strconv.Itoa(e.Previous))
 	}
 
+	rawHTML, err := entryHTMLFrom(entryHTMLRaw{
+		Content: splitTextBlob(e.Content),
+		Image: splitTextBlob(e.Image),
+	})
+	if err != nil {
+		return EntryServing{}, err
+	}
+
 	return EntryServing{
 		Title: e.Title,
 		NextPath: nextStr,
@@ -93,19 +98,45 @@ func EntryToServing(e db.Entry) EntryServing {
 		Month: t.Month().String(),
 		Day: strconv.Itoa(t.Day()),
 		Year: strconv.Itoa(t.Year()),
-		Content: stringToTemplate(splitTextBlob(e.Content)),
-		Image: splitTextBlob(e.Image),
-	}
+		HTML: rawHTML,
+	}, nil
 }
 
-func OneoffToServing(o db.Oneoff) EntryServing {
+func OneoffToServing(o db.Oneoff) (EntryServing, error) {
+	rawHTML, err := entryHTMLFrom(entryHTMLRaw{
+		Content: splitTextBlob(o.Paragraph),
+		Image: splitTextBlob(o.Image),
+	})
+	if err != nil {
+		return EntryServing{}, err
+	}
+
 	return EntryServing{
 		Title: o.Uid,
-		Content: stringToTemplate(splitTextBlob(o.Paragraph)),
-		Image: splitTextBlob(o.Image),
-	}
+		HTML: rawHTML,
+	}, nil
 }
 
 func StringToPDF(pdf string) io.ReadSeeker {
 	return bytes.NewReader([]byte(pdf))
+}
+
+func entryHTMLFrom(raw entryHTMLRaw) (template.HTML, error) {
+	if len(raw.Content) != len(raw.Image) {
+		return "", errors.New("Image and Content arrays are mismatched")
+	}
+	var htmlBuf bytes.Buffer
+	for i, item := range raw.Content {
+		htmlBuf.WriteString(strings.Join([]string{"<p>", item, "</p>"}, ""))
+		if len(raw.Image[i]) != 0 {
+			htmlBuf.WriteString(
+				strings.Join(
+					[]string{"<a href=",
+						raw.Image[i],
+						"><img class=image src=",
+						raw.Image[i],
+						"></a>"}, ""))
+		}
+	}
+	return template.HTML(htmlBuf.String()), nil	
 }
