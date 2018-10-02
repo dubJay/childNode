@@ -122,7 +122,7 @@ func StringToPDF(pdf string) io.ReadSeeker {
 }
 
 func entryHTMLFrom(raw entryHTMLRaw) (template.HTML, error) {
-	if len(raw.Content) != len(raw.Image) {
+	if len(raw.Content) > len(raw.Image) {
 		return "", errors.New("Image and Content arrays are mismatched")
 	}
 	var htmlBuf bytes.Buffer

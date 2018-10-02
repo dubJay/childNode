@@ -247,12 +247,19 @@ func buildFeedPage(w http.ResponseWriter, r *http.Request) {
 		Created:     time.Unix(1489554739, 0),
 	}
 	for _, entry := range entries {
+		serving, err := serving.EntryToServing(entry)
+		if err != nil {
+			log.Printf("failed to generate HTML content for feed: %v", err)
+			http.Error(w, "failed to generate content for feed", http.StatusInternalServerError)
+			return
+		}
+
 		feed.Items = append(feed.Items,
 			&feeds.Item{
 				Title:       entry.Title,
 				Id:          strconv.Itoa(entry.Entry_id),
 				Link:        &feeds.Link{Href: strings.Join([]string{"https://christopher.cawdrey.name/entry/", strconv.Itoa(entry.Entry_id)}, "")},
-				Description: entry.Content,
+				Description: string(serving.HTML),
 				Created:     time.Unix(int64(entry.Entry_id), 0),
 			})
 	}
