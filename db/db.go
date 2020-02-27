@@ -86,7 +86,7 @@ func GetArticle(id int) (string, error) {
 }
 
 func GetRecentEntries(limit int) ([]Entry, error) {
-	rows, err := globalDB.Query(landingQuery, limit)
+	rows, err := globalDB.Query(landingQuery)
 	if err != nil {
 		return nil, err
 	}
