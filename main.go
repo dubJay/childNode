@@ -113,7 +113,7 @@ func buildLandingPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} 
-	entry, err := db.GetEntry(1000)
+	entry, err := db.GetEntry(0)
 	if err != nil {
 		log.Printf("failed to get entry: %v", err)
 		http.Error(w, "failed to retrieve langing page content from db", http.StatusInternalServerError)
@@ -232,7 +232,7 @@ func buildFeedPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	entries, err := db.GetRecentEntries(0)
+	entries, err := db.GetRecentEntries(1000)
 	if err != nil {
 		log.Printf("unable to retrieve history entries: %v", err)
 		http.Error(w, "failed to retrieve recent entries.", http.StatusInternalServerError)
