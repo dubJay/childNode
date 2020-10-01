@@ -5,6 +5,7 @@ import (
 	"errors"
 	"html/template"
 	"io"
+	"math/rand"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -41,8 +42,31 @@ type historyEntry struct {
 
 type HistoryServing []historyEntry
 
+type SCPServing struct {
+	Content template.HTML
+	Quip string
+}
+
+var quips  = []string{
+	"\"Best website on the Internet!\" -- My Mother",
+	"It's like the offical SCPLOA webpage, only updated regularly!",
+	"This site is proudly hosted on pasteries.",
+	"Read only? But I'm pissed off and want to tell somebody about it!",
+	"Do you think the webmaster knows this dialogue changes when I refresh the page?",
+	"You know, I'm starting to suspect this Snipes fella is based on Bill...",
+	"\"SLOW DOWN ON ASSOCIATION ROADS!\" --A Landowner probably",
+	"SCP -- It's like Wyoming but without the tax incentives",
+	"Packrats, cows, and hunters...oh my!"}
+
 func splitTextBlob(s string) []string {
 	return strings.Split(s, `\n`)
+}
+
+func SCPToServing(in []byte) SCPServing {
+	return SCPServing{
+		Content: template.HTML(string(in)),
+		Quip: quips[rand.Intn(len(quips))],
+	}
 }
 
 func HistoryToServing(h []db.History) HistoryServing {

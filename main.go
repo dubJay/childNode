@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -36,7 +37,19 @@ const (
 	entryPage   = "entry.html"
 	historyPage = "history.html"
 	landingPage = "index.html"
-	kCawd       = "kcawd.html"
+	kCawdPage   = "kcawd.html"
+
+	scpBasePage = "base.html"
+	scpLanding = "landing"
+	scpAnnouncements = "announcements"
+	scpFaqs = "faqs"
+	scpMap = "map"
+	scpConditions = "conditions"
+	scpWeather = "weather"
+	scpCam = "cam"
+
+	scpConst = "scp"
+	htmlSuffix = ".html"
 )
 
 func initDeps() {
@@ -65,15 +78,20 @@ func parseTemplates() {
 	if err != nil {
 		log.Fatalf("error parsing template %s: %v", historyPage, err)
 	}
-	tmpls[kCawd], err = template.New(
-		kCawd).ParseFiles(filepath.Join(*rootDir, *templates, kCawd))
+	tmpls[kCawdPage], err = template.New(
+		kCawdPage).ParseFiles(filepath.Join(*rootDir, *templates, kCawdPage))
 	if err != nil {
-		log.Fatalf("error parsing template %s: %v", kCawd, err)
+		log.Fatalf("error parsing template %s: %v", kCawdPage, err)
 	}
+	tmpls[scpBasePage], err = template.New(
+		scpBasePage).ParseFiles(filepath.Join(*rootDir, *templates, scpConst, scpBasePage))
+	if err != nil {
+		log.Fatalf("error parsing template %s: %v", kCawdPage, err)
+	}
+
 
 	log.Print("Templates successfully initialized");
 }
-
 
 func setupLogging() (*os.File, error) {
 	if *logDir == "" {
@@ -86,6 +104,39 @@ func setupLogging() (*os.File, error) {
 		return os.Create(logFile)
 	}
 	return os.Open(logFile);
+}
+
+func buildSCPHome(w http.ResponseWriter, r *http.Request) {
+	content, err := ioutil.ReadFile(filepath.Join(*rootDir, *templates, scpConst, scpLanding + htmlSuffix))
+	if err != nil {
+		log.Printf("error reading file %s: %v", scpLanding, err)
+		http.Error(w, "failed to build page", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tmpls[scpBasePage].Execute(w, serving.SCPToServing(content)); err != nil {
+		log.Printf("error executing template %s: %v", scpLanding, err)
+		http.Error(w, "failed to build page", http.StatusInternalServerError)
+	}
+
+}
+
+func buildSCP(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	if len(vars["optional"]) != 0 {
+		content, err := ioutil.ReadFile(filepath.Join(*rootDir, *templates, scpConst, vars["optional"] + htmlSuffix))
+		if err != nil {
+			log.Printf("error reading file %s: %v", vars["optional"], err)
+			buildSCPHome(w, r)
+			return
+		}
+
+		if err := tmpls[scpBasePage].Execute(w, serving.SCPToServing(content)); err != nil {
+			log.Printf("error executing template %s: %v", vars["optional"], err)
+			http.Error(w, "failed to build page", http.StatusInternalServerError)
+		}
+	}
 }
 
 func buildOneOff(w http.ResponseWriter, uid string) error {
@@ -186,8 +237,8 @@ func buildKCawdPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := tmpls[kCawd].Execute(w, articles); err != nil {
-		log.Printf("error executing template %s: %v", kCawd, err)
+	if err := tmpls[kCawdPage].Execute(w, articles); err != nil {
+		log.Printf("error executing template %s: %v", kCawdPage, err)
 		http.Error(w, "failed to build katy's landing page", http.StatusInternalServerError)
 	}
 }
@@ -356,8 +407,17 @@ func main() {
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
 	router.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(*rootDir, "robots.txt"))})
+
+	// Kcawd route.
 	router.HandleFunc("/kcawd", buildKCawdPage).Methods("GET")
 	router.HandleFunc("/kcawd/{id}", serveKCawdPDF).Methods("GET")
+
+	// SCP route.
+	router.Handle("/scp/static/{item}", http.StripPrefix("/scp/static", http.FileServer(http.Dir(filepath.Join(*rootDir, *static))))).Methods("GET")
+	router.HandleFunc("/scp", buildSCPHome).Methods("GET")
+	router.HandleFunc("/scp/{optional}", buildSCP).Methods("GET")
+	
+	// Christopher.cawdrey.name route.
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")
