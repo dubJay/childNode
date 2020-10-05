@@ -416,7 +416,7 @@ func main() {
 	scp := router.PathPrefix("/scp").Subrouter()
 	scp.Handle("/static/{item}", http.StripPrefix("/scp/static", http.FileServer(http.Dir(filepath.Join(*rootDir, *static))))).Methods("GET")
 	scp.Handle("/images/{dir}/{item}", http.StripPrefix("/scp/images", http.FileServer(http.Dir(filepath.Join(*rootDir, *resources))))).Methods("GET")
-	scp.HandleFunc("/", buildSCPHome).Methods("GET")
+	scp.HandleFunc("", buildSCPHome).Methods("GET")
 	scp.HandleFunc("/{optional}", buildSCP).Methods("GET")
 	
 	// Christopher.cawdrey.name route.
