@@ -413,9 +413,11 @@ func main() {
 	router.HandleFunc("/kcawd/{id}", serveKCawdPDF).Methods("GET")
 
 	// SCP route.
-	router.Handle("/scp/static/{item}", http.StripPrefix("/scp/static", http.FileServer(http.Dir(filepath.Join(*rootDir, *static))))).Methods("GET")
-	router.HandleFunc("/scp", buildSCPHome).Methods("GET")
-	router.HandleFunc("/scp/{optional}", buildSCP).Methods("GET")
+	scp := router.PathPrefix("/scp").Subrouter()
+	scp.Handle("/static/{item}", http.StripPrefix("/scp/static", http.FileServer(http.Dir(filepath.Join(*rootDir, *static))))).Methods("GET")
+	scp.Handle("/images/{dir}/{item}", http.StripPrefix("/scp/images", http.FileServer(http.Dir(filepath.Join(*rootDir, *resources))))).Methods("GET")
+	scp.HandleFunc("/", buildSCPHome).Methods("GET")
+	scp.HandleFunc("/{optional}", buildSCP).Methods("GET")
 	
 	// Christopher.cawdrey.name route.
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
