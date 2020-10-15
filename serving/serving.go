@@ -50,7 +50,7 @@ type SCPServing struct {
 var quips  = []string{
 	"\"Best website on the Internet!\" -- My Mother",
 	"It's like the offical SCPLOA webpage, only updated regularly!",
-	"This site is proudly hosted on pasteries.",
+	"This site is proudly hosted on pastries.",
 	"Read only? But I'm pissed off and want to tell somebody about it!",
 	"Do you think the webmaster knows this dialogue changes when I refresh the page?",
 	"You know, I'm starting to suspect this Snipes fella is based on Bill...",
