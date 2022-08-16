@@ -82,8 +82,14 @@ func HistoryToServing(h []db.History) HistoryServing {
 		sk[t.Year()] = append(sk[t.Year()], entry.Entry_id)
 	}
 
+	mapKeys := make([]int, 0, len(m))
+	for k := range m {
+		mapKeys = append(mapKeys, k)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(mapKeys)));
+
 	var histServe HistoryServing
-	for key := range m {
+	for _, key := range mapKeys {
 		history := historyEntry{}
 		history.Year = key
 		sort.Sort(sort.Reverse(sort.IntSlice(sk[key])))
