@@ -38,6 +38,7 @@ const (
 	historyPage = "history.html"
 	landingPage = "index.html"
 	kCawdPage   = "kcawd.html"
+	wizardProgrammingPage = "christhewizardprogrammer.html"
 
 	scpBasePage = "base.html"
 	scpLanding = "landing"
@@ -407,6 +408,11 @@ func main() {
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
 	router.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(*rootDir, "robots.txt"))})
+
+	// ChrisTheWizardProgrammer route.
+	router.HandleFunc("/wizardprogramming",func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(*rootDir, *templates, wizardProgrammingPage))})
+
 
 	// Kcawd route.
 	router.HandleFunc("/kcawd", buildKCawdPage).Methods("GET")
